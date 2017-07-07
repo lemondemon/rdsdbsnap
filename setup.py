@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='rdsdbsnap',
-    version='0.1.1',
+    version='0.1.2',
     py_modules=['rdsdbsnap'],
     install_requires=[
         'Click',
@@ -19,6 +19,6 @@ setup(
     description="Tool for managing Amazon RDS snapshots",
     license="MIT",
     keywords="aws rds snapshot cli",
-    url="",
+    url="https://github.com/gstlt/rdsdbsnap",
 )
 

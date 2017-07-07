@@ -3,6 +3,8 @@
 
 """dbsnap is a DB snapshot management tool for Amazon RDS.
 Demo tool used for educational purposes in http://blog.codebender.cc/2015/12/08/automating-db-snapshots-at-amazon-rds/
+
+Expanded and updated by Grzegorz Adamowicz
 """
 
 import boto3
@@ -11,7 +13,7 @@ import datetime
 import time
 import sys
 
-__version__ = '0.1.0'
+__version__ = '0.1.2'
 
 
 class DBSnapshot(object):
@@ -20,16 +22,21 @@ class DBSnapshot(object):
     def __init__(self):
         self.client = boto3.client('rds')
 
-    def create(self, db_instance, timestamp):
+    def create(self, prefix_name, db_instance, timestamp):
         """Creates a new DB snapshot"""
-        snapshot = "{0}-{1}-{2}".format("mysnapshot", db_instance, timestamp)
+        snapshot = "{0}-{1}-{2}".format(prefix_name, db_instance, timestamp)
         self.client.create_db_snapshot(DBSnapshotIdentifier=snapshot, DBInstanceIdentifier=db_instance)
         time.sleep(2)  # wait 2 seconds before status request
         current_status = None
+
         while True:
             current_status = self.__status(snapshot=snapshot)
             if current_status == 'available' or current_status == 'failed':
                 break
+
+            # we need to wait a bit due to rate exceeded errors
+            time.sleep(10)
+
         return current_status
 
     def delete(self, snapshot):
@@ -91,16 +98,18 @@ def snapshots(db_instance):
 
 @cli.command()
 @click.option('--db-instance', help='Database instance')
-def create(db_instance):
+@click.option('--snapshot-prefix', default='script-automated-snapshot', help='Prefix for snapshot name, default: script-automated-snapshot')
+def create(snapshot_prefix, db_instance):
     """Creates a new DB snapshot"""
     if not db_instance:
         click.echo("Please specify a database using --db-instance option", err=True)
         return sys.exit(1)
+
     dbcon = DBSnapshot()
     date = datetime.datetime.now()
     timestamp = date.strftime("%Y-%m-%d")
     click.echo("Creating a new snapshot from {0} instance...".format(db_instance))
-    response = dbcon.create(db_instance=db_instance, timestamp=timestamp)
+    response = dbcon.create(prefix_name=snapshot_prefix, db_instance=db_instance, timestamp=timestamp)
     click.echo("Snapshot status: {0}".format(response))
 
 
