@@ -81,15 +81,37 @@ def instances():
 
 @cli.command()
 @click.option('--db-instance', help='Database instance')
-def snapshots(db_instance):
+def list_snapshots(db_instance):
     """Returns the available RDS instance snapshots"""
     if not db_instance:
         click.echo("Please specify a database using --db-instance option", err=True)
         return sys.exit(1)
 
     dbcon = DBSnapshot()
-    db_snapshots = dbcon.list_snapshots(db_instance=db_instance)
-    # print(db_snapshots)
+    db_snapshots = sorted(dbcon.list_snapshots(db_instance=db_instance), key=lambda k: k['SnapshotCreateTime'], reverse=True)
+
+    click.echo("Database Snapshosts:")
+
+    for snapshot in db_snapshots:
+        print("\t- {0}\t- {1}".format(snapshot['DBSnapshotIdentifier'], snapshot['SnapshotCreateTime']))
+
+
+@cli.command()
+@click.option('--db-instance', help='Database instance')
+@click.option('--older-than-days', help='Remove snapshots older than provided number of days')
+def delete_snapshots(db_instance, days):
+    """Deletes snapshots older than X days"""
+    if not db_instance:
+        click.echo("Please specify a database using --db-instance option", err=True)
+        return sys.exit(1)
+
+    if not days:
+        click.echo("Please specify number of days using --older-than-days option", err=True)
+        return sys.exit(1)
+
+    dbcon = DBSnapshot()
+    db_snapshots = sorted(dbcon.list_snapshots(db_instance=db_instance), key=lambda k: k['SnapshotCreateTime'], reverse=True)
+
     click.echo("Database Snapshosts:")
 
     for snapshot in db_snapshots:
