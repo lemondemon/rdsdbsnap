@@ -9,11 +9,13 @@ Expanded and updated by Grzegorz Adamowicz
 
 import boto3
 import click
-import datetime
 import time
 import sys
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 
 class DBSnapshot(object):
@@ -41,6 +43,7 @@ class DBSnapshot(object):
 
     def delete(self, snapshot):
         """Deletes a user-specified DB snapshot"""
+        # from botocore.errorfactory import InvalidDBSnapshotStateFault
         try:
             current_status = self.__status(snapshot=snapshot)
             if current_status == 'available':
@@ -48,7 +51,9 @@ class DBSnapshot(object):
                 current_status = self.__status(snapshot=snapshot)
         except:
             current_status = 'does not exist'
+
         return current_status
+
 
     def list_instances(self):
         """Lists the available RDS instances"""
@@ -60,6 +65,7 @@ class DBSnapshot(object):
 
     def __status(self, snapshot):
         """Returns the current status of the DB snapshot"""
+        print(self.client.describe_db_snapshots(DBSnapshotIdentifier=snapshot)['DBSnapshots'][0]['Status'])
         return self.client.describe_db_snapshots(DBSnapshotIdentifier=snapshot)['DBSnapshots'][0]['Status']
 
 
@@ -99,24 +105,38 @@ def list_snapshots(db_instance):
 @cli.command()
 @click.option('--db-instance', help='Database instance')
 @click.option('--older-than-days', help='Remove snapshots older than provided number of days')
-def delete_snapshots(db_instance, days):
+def delete_snapshots(db_instance, older_than_days):
     """Deletes snapshots older than X days"""
     if not db_instance:
         click.echo("Please specify a database using --db-instance option", err=True)
         return sys.exit(1)
 
-    if not days:
+    if not older_than_days:
         click.echo("Please specify number of days using --older-than-days option", err=True)
         return sys.exit(1)
+
+    days = int(older_than_days)
 
     dbcon = DBSnapshot()
     db_snapshots = sorted(dbcon.list_snapshots(db_instance=db_instance), key=lambda k: k['SnapshotCreateTime'], reverse=True)
 
-    click.echo("Database Snapshosts:")
+    # timestamp for snapshots older than this date minus X days
+    delete_time = datetime.now(timezone.utc) - timedelta(days=days)
+
+    deletion_counter = 0
 
     for snapshot in db_snapshots:
-        print("\t- {0}\t- {1}".format(snapshot['DBSnapshotIdentifier'], snapshot['SnapshotCreateTime']))
+        # print(snapshot)
+        start_time = snapshot['SnapshotCreateTime']
 
+        if start_time < delete_time and snapshot['SnapshotType'] == "manual":
+            print('Deleting snapshot {0}'.format(snapshot["DBSnapshotIdentifier"]))
+            deletion_counter = deletion_counter + 1
+
+            response = dbcon.delete(snapshot=snapshot["DBSnapshotIdentifier"])
+            print("\tStatus: {0}".format(response))
+
+    print("Deleted {0} snapshots".format(deletion_counter))
 
 @cli.command()
 @click.option('--db-instance', help='Database instance')
@@ -128,7 +148,7 @@ def create(snapshot_prefix, db_instance):
         return sys.exit(1)
 
     dbcon = DBSnapshot()
-    date = datetime.datetime.now()
+    date = datetime.now()
     timestamp = date.strftime("%Y-%m-%d")
     click.echo("Creating a new snapshot from {0} instance...".format(db_instance))
     response = dbcon.create(prefix_name=snapshot_prefix, db_instance=db_instance, timestamp=timestamp)

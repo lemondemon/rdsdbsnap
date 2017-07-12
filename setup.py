@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='rdsdbsnap',
-    version='0.1.2',
+    version='0.1.3',
     py_modules=['rdsdbsnap'],
     install_requires=[
         'Click',
