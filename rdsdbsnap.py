@@ -43,7 +43,6 @@ class DBSnapshot(object):
 
     def delete(self, snapshot):
         """Deletes a user-specified DB snapshot"""
-        # from botocore.errorfactory import InvalidDBSnapshotStateFault
         try:
             current_status = self.__status(snapshot=snapshot)
             if current_status == 'available':
@@ -65,7 +64,6 @@ class DBSnapshot(object):
 
     def __status(self, snapshot):
         """Returns the current status of the DB snapshot"""
-        print(self.client.describe_db_snapshots(DBSnapshotIdentifier=snapshot)['DBSnapshots'][0]['Status'])
         return self.client.describe_db_snapshots(DBSnapshotIdentifier=snapshot)['DBSnapshots'][0]['Status']
 
 
