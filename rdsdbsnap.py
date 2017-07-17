@@ -59,8 +59,16 @@ class DBSnapshot(object):
         return self.client.describe_db_instances()['DBInstances']
 
     def list_snapshots(self, db_instance):
-        """Lists all available snapshots"""
-        return self.client.describe_db_snapshots(DBInstanceIdentifier='{0}'.format(db_instance))['DBSnapshots']
+        """Lists all available snapshots sorted by create time"""
+        return sorted(self.client.describe_db_snapshots(DBInstanceIdentifier='{0}'.format(db_instance))['DBSnapshots'],
+            key=lambda k: k['SnapshotCreateTime'], reverse=True)
+
+    def newest_snapshot(self, db_instance):
+        """Show newest snapshot"""
+        snapshots = sorted(self.client.describe_db_snapshots(DBInstanceIdentifier='{0}'.format(db_instance))['DBSnapshots'], key=lambda k: k['SnapshotCreateTime'], reverse=True)
+        # we might consider filtering out automated snapshots
+        return snapshots[0]
+
 
     def __status(self, snapshot):
         """Returns the current status of the DB snapshot"""
@@ -98,6 +106,22 @@ def list_snapshots(db_instance):
 
     for snapshot in db_snapshots:
         print("\t- {0}\t- {1}".format(snapshot['DBSnapshotIdentifier'], snapshot['SnapshotCreateTime']))
+
+
+@cli.command()
+@click.option('--db-instance', help='Database instance')
+def newest_snapshot(db_instance):
+    """Return date and time of newest snapshot"""
+    if not db_instance:
+        click.echo("Please specify a database using --db-instance option", err=True)
+        return sys.exit(1)
+
+    dbcon = DBSnapshot()
+    snapshot_data = dbcon.newest_snapshot(db_instance=db_instance)
+
+    print("Snapshot type: {0}".format(snapshot_data['SnapshotType']))
+    print("Snapshot identifier: {0}".format(snapshot_data['DBSnapshotIdentifier']))
+    print("Snapshot date: {0}".format(snapshot_data['SnapshotCreateTime'].strftime('%Y-%m-%d %H:%M')))
 
 
 @cli.command()
